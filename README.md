@@ -139,7 +139,26 @@ The following placeholders in markdown files are replaced:
 
 ---
 
-## 🔧 Environment Variables
+## 🔧 Configuration Options
+
+The plugin manager can be configured via `~/.config/opencode/opencode.json`. Add a `manifestSearchPaths` array to specify custom paths where the tool should look for marketplace manifests. Each path can be either:
+- A **directory**: The tool will search for `<path>/marketplace.json` and also try the original path as-is
+- A direct **file path**: The exact file is used, plus a suffixed version is tried automatically
+
+```json
+{
+  "manifestSearchPaths": [
+    "./my-plugins",
+    "./external-plugins/custom-manifest.json"
+  ]
+}
+```
+
+The search paths are checked in order. The default fallback paths (always included) are:
+- `.claude-plugin/marketplace.json`
+- `marketplace.json`
+
+### Environment Variables
 
 ```bash
 # Use SSH key for git operations

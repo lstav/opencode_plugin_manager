@@ -57,15 +57,33 @@ def add_marketplace(name_or_url: str, url: str = None):
     save_marketplaces(marketplaces)
     print(f"✅ Registered marketplace '{name}': {git_url}")
 
+def load_default_manifest_paths() -> list:
+    return [".claude-plugin/marketplace.json", "marketplace.json"]
+
 def fetch_manifest_from_repo(repo_url: str) -> dict:
+    if CONFIG_FILE.exists():
+        try:
+            config = json.loads(CONFIG_FILE.read_text())
+            custom_tmp = config.get("manifestSearchPaths") or []
+            if len(custom_tmp):
+                custom = [d + "/marketplace.json" for d in custom_tmp] + custom_tmp
+            else:
+                custom = []
+        except Exception:
+            custom = []
+    else:
+        custom = []
+
+    search_paths = list(custom) + load_default_manifest_paths()
+
     with tempfile.TemporaryDirectory() as temp_dir:
         env = get_git_env()
         print(f"📥 Fetching marketplace catalog from Git: {repo_url}...")
-        
+
         cmd = ["git", "clone", "--depth", "1"]
         if os.environ.get("GIT_SSL_NO_VERIFY", "").lower() in ["true", "1", "yes"]:
             cmd.extend(["-c", "http.sslVerify=false"])
-            
+
         cmd.extend([repo_url, temp_dir])
 
         res = subprocess.run(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -73,11 +91,14 @@ def fetch_manifest_from_repo(repo_url: str) -> dict:
             print(f"❌ Git clone failed: {res.stderr.decode().strip()}")
             sys.exit(1)
 
-        manifest_path = Path(temp_dir) / ".claude-plugin" / "marketplace.json"
-        if not manifest_path.exists():
-            manifest_path = Path(temp_dir) / "marketplace.json"
+        manifest_path = None
+        for path in search_paths:
+            candidate = Path(temp_dir) / path if not Path(path).is_absolute() else Path(path)
+            if candidate.exists():
+                manifest_path = candidate
+                break
 
-        if not manifest_path.exists():
+        if not manifest_path:
             print(f"❌ Could not find marketplace.json in repository '{repo_url}'.")
             sys.exit(1)
 
